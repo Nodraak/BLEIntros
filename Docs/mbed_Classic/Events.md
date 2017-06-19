@@ -40,7 +40,6 @@ Next, we tell the program (in ``main()``) to execute ``periodicCallback`` every 
 ```c
 int main(void)
 {
-	led1 = 1;
 	Ticker ticker;
 	ticker.attach(periodicCallback, 1); // calls the callback function every second
 ```
@@ -50,26 +49,27 @@ Finally, we use ``triggerSensorPolling`` in an infinite loop in ``main()``. Its 
 
 ```c
 // infinite loop
-while (1) {
-    // check for trigger from periodicCallback()
-    if (triggerSensorPolling && ble.getGapState().connected) {
+for (;;) {
+	// check for trigger from periodicCallback()
+	if (triggerSensorPolling && ble.getGapState().connected) {
 
-/* if periodicCallback set the value of triggerSensorPolling to TRUE,
-* we execute the code block that follow.
-* The first thing it does is reset triggerSensorPolling to FALSE.
-* Then it executes the interrupt action, which in our case is
-* simply to change the heart rate */
+		/* if periodicCallback set the value of triggerSensorPolling to TRUE,
+		* we execute the code block that follow.
+		* The first thing it does is reset triggerSensorPolling to FALSE.
+		* Then it executes the interrupt action, which in our case is
+		* simply to change the heart rate */
 
-        triggerSensorPolling = false;
+		triggerSensorPolling = false;
 
-        // Do blocking calls or whatever is necessary for sensor polling.
-        // In our case, we simply update the HRM measurement.
+		// Do blocking calls or whatever is necessary for sensor polling.
+		// In our case, we simply update the HRM measurement.
 
 		[...]
 
-    } else { // if nothing came from the sensor, we stay with waitForEvent()
-        ble.waitForEvent(); // low power wait for event
-    }
+	// if nothing came from the sensor, we stay with waitForEvent()
+	} else {
+		ble.waitForEvent(); // low power wait for event
+	}
 }
 ```
 
@@ -127,8 +127,8 @@ int main(void)
 	// we’d stay on the first line until the button was pressed and then
 	// on the second line until the button was released
 
-button.fall(buttonPressedCallback);// falling edge
-		button.rise(buttonReleasedCallback);// rising edge
+	button.fall(buttonPressedCallback); // falling edge
+	button.rise(buttonReleasedCallback); // rising edge
 ```
 
 In mbed BLE we use callback functions to allow ``main()`` to reach ``waitForEvent()``. For example, in the heart rate monitor sample we call ``periodicCalback`` once a second. Between calls, the system sleeps within ``waitForEvent()``:
@@ -136,21 +136,23 @@ In mbed BLE we use callback functions to allow ``main()`` to reach ``waitForEven
 ```c
 int main(void)
 {
-led1 = 1;
-Ticker ticker;
-ticker.attach(periodicCallback, 1); //
+	Ticker ticker;
+	ticker.attach(periodicCallback, 1);
 
-while (1) {
-        // check for trigger from periodicCallback()
- 		       if (triggerSensorPolling && ble.getGapState().connected) {
-    		        		triggerSensorPolling = false;
+	for (;;) {
+		// check for trigger from periodicCallback()
+		if (triggerSensorPolling && ble.getGapState().connected)
+		{
+			triggerSensorPolling = false;
 
-[... a bit more code here ...]
+			[... a bit more code here ...]
 
-} else {
+		} else {
 
-ble.waitForEvent():
-
+			ble.waitForEvent():
+		}
+	}
+}
 ```
 
 Here’s another example from the heart-rate demo for setting up a callback to handle a disconnection event:
@@ -165,7 +167,7 @@ This is a call to the function ``onDisconnection`` that’s defined in ``BLEDevi
 
 void disconnectionCallback(Gap::Handle_t handle, Gap::DisconnectionReason_t reason)
 {
-    		ble.startAdvertising(); // restart advertising
+	ble.startAdvertising(); // restart advertising
 }
 
 ```
@@ -178,15 +180,22 @@ Another good use for a callback function is when we need two functions to work o
 So here’s a plain-language example:
 
 ```c
-function 1 {
-	receive input from some blocking source like a sensor and create new output; }
-function 2 {
-	receive input from function 1 and process it; }
+// receive input from some blocking source like a sensor and create new output
+foo(callback) {
+	input = gather_input();
+	output = callback(input);
+	return output;
+}
 
-main()
+// receive input from foo() and process it
+bar(input) {
+	output = process(input);
+	return output;
+}
+
+int main(void)
 {
-// this will trigger function 1 and then call function 2 at the tail end
-
-call function1(using function 2);
+	// this will trigger foo() and then call bar() at the tail end
+	foo(bar);
 }
 ```
