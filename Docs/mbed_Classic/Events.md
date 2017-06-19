@@ -8,26 +8,26 @@ Event handlers are able to pre-empt the main program, that is - interrupt its ex
 
 <span class="images">![events](../Introduction/Images/EventHandle.png) <span>An event interrupts the main loop and triggers an action. The interrupt is handled, and the event handler then returns control to main()</span></span>
 
-The relationship between ``main()`` and event handlers is all about timing, especially the decision about which code to move to an event handler and which to leave in ``main()``. Handler execution time is often not determined by the size of the code. It can instead be determined by how many times it must run - for example, how many iterations of a data-processing loop it performs. It can also be determined by communication with external components such as sensors (also called *polling*). Communication delays can range from a few microseconds to milliseconds, depending on the sensor involved. Reading an accelerometer can take around a millisecond, and a temperature sensor can take up to a few hundred microseconds. A barometer, on the other hand, can take up to 10 milliseconds to yield a new sensor value. 
+The relationship between ``main()`` and event handlers is all about timing, especially the decision about which code to move to an event handler and which to leave in ``main()``. Handler execution time is often not determined by the size of the code. It can instead be determined by how many times it must run - for example, how many iterations of a data-processing loop it performs. It can also be determined by communication with external components such as sensors (also called *polling*). Communication delays can range from a few microseconds to milliseconds, depending on the sensor involved. Reading an accelerometer can take around a millisecond, and a temperature sensor can take up to a few hundred microseconds. A barometer, on the other hand, can take up to 10 milliseconds to yield a new sensor value.
 
-An event, such as a sensor reading, wants to trigger an event handler that will wake the device and run immediately. This can happen if the event arrives when the program is in ``main()`` (when the device is sleeping, in our case). But if the event arrives when an event handler is being executed, it may have to wait for the first event to be handled in full. In this scenario, the first event is blocking the execution of the second event. Because event handlers can block each other, they are supposed to execute quickly and then return control to ``main()``. The quick return to ``main()`` allows the system to remain responsive. In the world of microcontrollers, anything longer than a few dozen microseconds is too long. A millisecond is an eternity. Therefore, activities longer than 100 microseconds, such as data processing and sensor communication, should be put in ``main()`` and not in an event handler. This allows event handlers to interrupt long-running processes, meaning the system remains responsive while running these processes. 
+An event, such as a sensor reading, wants to trigger an event handler that will wake the device and run immediately. This can happen if the event arrives when the program is in ``main()`` (when the device is sleeping, in our case). But if the event arrives when an event handler is being executed, it may have to wait for the first event to be handled in full. In this scenario, the first event is blocking the execution of the second event. Because event handlers can block each other, they are supposed to execute quickly and then return control to ``main()``. The quick return to ``main()`` allows the system to remain responsive. In the world of microcontrollers, anything longer than a few dozen microseconds is too long. A millisecond is an eternity. Therefore, activities longer than 100 microseconds, such as data processing and sensor communication, should be put in ``main()`` and not in an event handler. This allows event handlers to interrupt long-running processes, meaning the system remains responsive while running these processes.
 
-In these cases, the event handler is used not to perform functions but rather to enqueue work for the main loop. In the [heart rate demo](http://developer.mbed.org/teams/Bluetooth-Low-Energy/code/BLE_HeartRate/), the work of polling for heart rate data is communicated to the main loop through the variable ``triggerSensorPolling``, which gets set periodically from an event handler called ``periodicCallback()``. 
+In these cases, the event handler is used not to perform functions but rather to enqueue work for the main loop. In the [heart rate demo](http://developer.mbed.org/teams/Bluetooth-Low-Energy/code/BLE_HeartRate/), the work of polling for heart rate data is communicated to the main loop through the variable ``triggerSensorPolling``, which gets set periodically from an event handler called ``periodicCallback()``.
 
 First, we see the ``triggerSensorPolling`` parameter and ``periodicCallback`` function declarations:
 
 ```c
-// the parameter triggerSensorPolling begins as FALSE. 
+// the parameter triggerSensorPolling begins as FALSE.
 // It will be set to TRUE in the function periodicCallback
-static volatile bool  triggerSensorPolling = false; 
+static volatile bool  triggerSensorPolling = false;
 
 [...]
-	
+
 void periodicCallback(void)
 {
 	led1 = !led1; /* Do blinky on LED1 while we're waiting for BLE events */
 
-	/* Note that the periodicCallback() executes in interrupt context, 
+	/* Note that the periodicCallback() executes in interrupt context,
 	* so it is safer to do
 	* heavy-weight sensor polling from the main thread. */
 	triggerSensorPolling = true; // sets TRUE and returns to main()
@@ -52,19 +52,19 @@ Finally, we use ``triggerSensorPolling`` in an infinite loop in ``main()``. Its 
 // infinite loop
 while (1) {
     // check for trigger from periodicCallback()
-    if (triggerSensorPolling && ble.getGapState().connected) { 
+    if (triggerSensorPolling && ble.getGapState().connected) {
 
-/* if periodicCallback set the value of triggerSensorPolling to TRUE, 
-* we execute the code block that follow. 
-* The first thing it does is reset triggerSensorPolling to FALSE. 
-* Then it executes the interrupt action, which in our case is 
+/* if periodicCallback set the value of triggerSensorPolling to TRUE,
+* we execute the code block that follow.
+* The first thing it does is reset triggerSensorPolling to FALSE.
+* Then it executes the interrupt action, which in our case is
 * simply to change the heart rate */
 
-        triggerSensorPolling = false; 
+        triggerSensorPolling = false;
 
         // Do blocking calls or whatever is necessary for sensor polling.
-        // In our case, we simply update the HRM measurement. 
-		
+        // In our case, we simply update the HRM measurement.
+
 		[...]
 
     } else { // if nothing came from the sensor, we stay with waitForEvent()
@@ -93,40 +93,40 @@ The first use of the callback function is to allow the program not to stall when
 
 ```c
 // Instantiating an object of the InterruptIn class for receiving interrupts
-InterruptIn button(BUTTON1); 
+InterruptIn button(BUTTON1);
 ...
-	
-// the callback functions are not part of main(); 
+
+// the callback functions are not part of main();
 // they’re associated with their triggers  from main
 
-// reaction to falling edge - a button press changes 
+// reaction to falling edge - a button press changes
 // the current received from the button
 
 void buttonPressedCallback(void) 	{
 	buttonPressed = true;
 	// gives the buttonState characteristic the value TRUE
-	ble.updateCharacteristicValue(buttonState.getValueHandle(), 
+	ble.updateCharacteristicValue(buttonState.getValueHandle(),
 		(uint8_t *)&buttonPressed, sizeof(bool));
 }
 
 // reaction to rising edge - releasing the button changes the current again
-void buttonReleasedCallback(void) 
+void buttonReleasedCallback(void)
 {
 	buttonPressed = false;
 	// gives the buttonState characteristic the value FALSE
-	ble.updateCharacteristicValue(buttonState.getValueHandle(), 
+	ble.updateCharacteristicValue(buttonState.getValueHandle(),
 		(uint8_t *)&buttonPressed, sizeof(bool));
 }
 ...
 int main(void)
 {
 ...
-	// these lines tell the program to set up the functions and move on; 
-	// mbed OS will ensure that the functions are called when the events occur. 
-	// If these lines were the function code, rather than a call to the functions, 
+	// these lines tell the program to set up the functions and move on;
+	// mbed OS will ensure that the functions are called when the events occur.
+	// If these lines were the function code, rather than a call to the functions,
 	// we’d stay on the first line until the button was pressed and then
 	// on the second line until the button was released
-		
+
 button.fall(buttonPressedCallback);// falling edge
 		button.rise(buttonReleasedCallback);// rising edge
 ```
@@ -144,7 +144,7 @@ while (1) {
         // check for trigger from periodicCallback()
  		       if (triggerSensorPolling && ble.getGapState().connected) {
     		        		triggerSensorPolling = false;
-	
+
 [... a bit more code here ...]
 
 } else {
@@ -173,20 +173,20 @@ void disconnectionCallback(Gap::Handle_t handle, Gap::DisconnectionReason_t reas
 
 ### Sequential calls
 
-Another good use for a callback function is when we need two functions to work one after another, and the second function requires information produced by the first. It would be inefficient to  have ``main()`` call the first function, wait for results and only then call the second function. Instead, we let ``main()`` call the first function with the second function passed in as a parameter. Passing the second function as a parameter means it will be called at the end of the first function's execution. This stops the program from hanging while waiting for a function to conclude. 
+Another good use for a callback function is when we need two functions to work one after another, and the second function requires information produced by the first. It would be inefficient to  have ``main()`` call the first function, wait for results and only then call the second function. Instead, we let ``main()`` call the first function with the second function passed in as a parameter. Passing the second function as a parameter means it will be called at the end of the first function's execution. This stops the program from hanging while waiting for a function to conclude.
 
 So here’s a plain-language example:
 
 ```c
-function 1 { 
+function 1 {
 	receive input from some blocking source like a sensor and create new output; }
-function 2 { 
+function 2 {
 	receive input from function 1 and process it; }
 
 main()
 {
 // this will trigger function 1 and then call function 2 at the tail end
 
-call function1(using function 2); 	
+call function1(using function 2);
 }
 ```
